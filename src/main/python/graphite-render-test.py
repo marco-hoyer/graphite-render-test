@@ -38,11 +38,12 @@ def build_graphite_render_url(host, target, format, timerange, local, cache):
          
 def get_graphite_datapoints(url):
     response = http_get(url,2)
+
     data = json.loads(response)
     try:
         data = data[0]
     except IndexError:
-        print "No data"
+        print response
         return None
     return data["datapoints"]
 
@@ -83,10 +84,10 @@ def main(args):
 if __name__ == '__main__':
     # parameter handling
     parser = argparse.ArgumentParser(description='Instruments backup and replication of applications configured in a yaml config file')
-    parser.add_argument("--host", help="Graphite Host", type=str)
-    parser.add_argument("--target", help="Graphite metric target", type=str)
-    parser.add_argument("--local", help="Query only for local metrics on graphite host", action="store_true", default=True)
-    parser.add_argument("--cache", help="Query without using cache", action="store_true", default=True)
+    parser.add_argument("host", help="Graphite Host", type=str)
+    parser.add_argument("target", help="Graphite metric target", type=str)
+    parser.add_argument("--local", help="Query only for local metrics on graphite host", action="store_true", default=False)
+    parser.add_argument("--cache", help="Query without using cache", action="store_true", default=False)
     parser.add_argument("--timerange", help="Graphite timerange to look at", type=int, default=5)
     parser.add_argument("--interval", help="Interval for looping requests", type=int, default=1)
     parser.add_argument("--count", help="Number of requests to make", type=int, default=60)
