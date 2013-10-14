@@ -10,6 +10,8 @@ import json
 import types
 import time
 import datetime
+import argparse
+
 
 def http_get(url, timeout):
     curl = pycurl.Curl()
@@ -23,7 +25,7 @@ def http_get(url, timeout):
     #print "HTTP-STATUS: " + str(curl.getinfo(pycurl.HTTP_CODE))
     return contents.getvalue()
 
-def build_graphite_render_url(host, target, format, from_time, local, cache):
+def build_graphite_render_url(host, target, format, timerange, local, cache):
     if local:
         local = "&local=1"
     else:
@@ -32,7 +34,7 @@ def build_graphite_render_url(host, target, format, from_time, local, cache):
         cache = "&cache=1"
     else:
         cache = "&cache=0"
-    return "http://" + host + "/render/?target=" + target + "&format=" + format + "&from=-" + from_time + local + cache
+    return "http://" + host + "/render/?target=" + target + "&format=" + format + "&" + timerange + local + cache
          
 def get_graphite_datapoints(url):
     response = http_get(url,2)
@@ -67,7 +69,27 @@ def check_metric_in_interval(url, interval, number_of_checks):
     print "Maximum number of nones was: " + str(max_nones)
         
 
-if __name__ == '__main__':
-    url = build_graphite_render_url("tuvgrp12.rz.is","app.devapp12.system.diskspace._data.inodes_used","json","5min", True, False)
+def main(args):
+    timerange = "from=-" + str(args.timerange) + "min"
+    url = build_graphite_render_url(args.host,args.target,"json",timerange, args.local, args.cache)
     print url
-    check_metric_in_interval(url, 1,1800)
+    if args.checknones:
+        check_metric_in_interval(url, args.interval,args.count)
+    else:
+        print "Usage:"
+        print "--checknones: checks given metric for none values"
+    
+    
+if __name__ == '__main__':
+    # parameter handling
+    parser = argparse.ArgumentParser(description='Instruments backup and replication of applications configured in a yaml config file')
+    parser.add_argument("--host", help="Graphite Host", type=str)
+    parser.add_argument("--target", help="Graphite metric target", type=str)
+    parser.add_argument("--local", help="Query only for local metrics on graphite host", action="store_true", default=True)
+    parser.add_argument("--cache", help="Query without using cache", action="store_true", default=True)
+    parser.add_argument("--timerange", help="Graphite timerange to look at", type=int, default=5)
+    parser.add_argument("--interval", help="Interval for looping requests", type=int, default=1)
+    parser.add_argument("--count", help="Number of requests to make", type=int, default=60)
+    parser.add_argument("--checknones", help="Check number and maximum of nones for a metric", action="store_true")
+    args = parser.parse_args()
+    main(args)
