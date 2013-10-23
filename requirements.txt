@@ -1,0 +1,4 @@
+argparse==1.2.1
+pybuilder==0.9.12
+pycurl==7.19.0.2
+wsgiref==0.1.2
