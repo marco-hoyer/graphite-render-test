@@ -41,7 +41,11 @@ def build_graphite_render_url(host, target, format, timerange, local, cache):
 def get_graphite_datapoints(url):
     response = http_get(url, 2)
 
-    data = json.loads(response)
+    try:
+        data = json.loads(response)
+    except ValueError as ve:
+        print ve
+        return []
     try:
         data = data[0]
     except IndexError:
