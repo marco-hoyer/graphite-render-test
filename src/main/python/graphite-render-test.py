@@ -25,6 +25,7 @@ def http_get(url, timeout):
     #print "HTTP-STATUS: " + str(curl.getinfo(pycurl.HTTP_CODE))
     return contents.getvalue()
 
+
 def build_graphite_render_url(host, target, format, timerange, local, cache):
     if local:
         local = "&local=1"
@@ -35,9 +36,10 @@ def build_graphite_render_url(host, target, format, timerange, local, cache):
     else:
         cache = "&cache=0"
     return "http://" + host + "/render/?target=" + target + "&format=" + format + "&" + timerange + local + cache
-         
+
+
 def get_graphite_datapoints(url):
-    response = http_get(url,2)
+    response = http_get(url, 2)
 
     data = json.loads(response)
     try:
@@ -46,6 +48,7 @@ def get_graphite_datapoints(url):
         print response
         return None
     return data["datapoints"]
+
 
 def count_nones(metrics):
     nones = 0
@@ -57,30 +60,32 @@ def count_nones(metrics):
     else:
         return "No data"
 
+
 # checks metric with an interval of x seconds
 def check_metric_in_interval(url, interval, number_of_checks):
     max_nones = 0
     for count in range(0, number_of_checks):
         datapoints = get_graphite_datapoints(url)
+
         nones = count_nones(datapoints)
         if max_nones < nones:
             max_nones = nones
         print str(datetime.datetime.now()) + " - Nones: " + str(nones) + " (" + str(datapoints) + ")"
         time.sleep(interval)
     print "Maximum number of nones was: " + str(max_nones)
-        
+
 
 def main(args):
     timerange = "from=-" + str(args.timerange) + "min"
     url = build_graphite_render_url(args.host,args.target,"json",timerange, args.local, args.cache)
     print url
     if args.checknones:
-        check_metric_in_interval(url, args.interval,args.count)
+        check_metric_in_interval(url, args.interval, args.count)
     else:
         print "Usage:"
         print "--checknones: checks given metric for none values"
-    
-    
+
+
 if __name__ == '__main__':
     # parameter handling
     parser = argparse.ArgumentParser(description='Instruments backup and replication of applications configured in a yaml config file')
