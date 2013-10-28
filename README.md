@@ -3,6 +3,11 @@ graphite-render-test
 
 Some tools for automated testing of the graphite render API
 
+## Usage:
+
+### Help
+python graphite-render-test.py --help
+
 ### load testing with random data
 - take 20 random targets
 - request them for 10 times each
