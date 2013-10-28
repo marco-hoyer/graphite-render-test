@@ -89,6 +89,7 @@ def check_random_metrics(host, timerange, local, cache, targetfile, interval, nu
 def generate_load(host, timerange, local, cache, targets, interval, number_of_checks):
     max_nones = 0
     no_data_count = 0
+    to_much_nones_count = 0
     
     for count in range(0, number_of_checks):
         for target in targets:
@@ -97,18 +98,21 @@ def generate_load(host, timerange, local, cache, targets, interval, number_of_ch
                 print "URL: " + url
             datapoints = get_graphite_datapoints(url)
             nones = count_nones(datapoints)
+            if nones > 1:
+                to_much_nones_count = to_much_nones_count + 1
             if not nones:
                 no_data_count = no_data_count + 1
             if max_nones < nones:
                 max_nones = nones
-            print str(datetime.datetime.now()) + " - Nones: " + str(nones) + " - Target: " + target
+            print str(datetime.datetime.now()) + " - Nones: " + str(nones) + "/" + str(len(datapoints)) + " - Target: " + target
             if args.verbose:
                 print "Datapoints: " + str(datapoints)
         print "## waiting " + str(interval) + "s ##"
         time.sleep(interval)
         
-    print "Maximum number of nones was: " + str(max_nones)
-    print "Received <No Data> for " + str(no_data_count) + " out of " + str(len(targets)*number_of_checks) + " render requests"
+    print "Maximum number of nones:     " + str(max_nones)
+    print "Received <No Data> for:      " + str(no_data_count) + " / " + str(len(targets)*number_of_checks) + " render requests"
+    print "Received too many nones for: " + str(to_much_nones_count) + " / " + str(len(targets)*number_of_checks) + " render requests"
 
 def main(args):
     try:
