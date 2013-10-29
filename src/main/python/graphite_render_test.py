@@ -14,6 +14,9 @@ import argparse
 import sys
 import random
 
+TIMEOUT_COUNT = 0
+VERBOSE = False
+
 def http_get(url, timeout):
     curl = pycurl.Curl()
     curl.setopt(pycurl.URL, url)
@@ -21,10 +24,11 @@ def http_get(url, timeout):
     #curl.setopt(pycurl.FOLLOWLOCATION, 1)
     contents = StringIO.StringIO()
     curl.setopt(pycurl.WRITEFUNCTION, contents.write)
+    start_time = time.time()
     curl.perform()
-
+    response_time = round(time.time() - start_time, 5)
     #print "HTTP-STATUS: " + str(curl.getinfo(pycurl.HTTP_CODE))
-    return contents.getvalue()
+    return (contents.getvalue(), response_time)
 
 
 def build_graphite_render_url(host, target, format, timerange, local, cache):
@@ -39,30 +43,44 @@ def build_graphite_render_url(host, target, format, timerange, local, cache):
     return "http://" + host + "/render/?target=" + target + "&format=" + format + "&" + timerange + local + cache
 
 
-def get_graphite_datapoints(url):
-    response = http_get(url, 2)
+def get_graphite_datapoints(response):
 
     try:
         data = json.loads(response)
     except ValueError as ve:
-        print ve
+        if VERBOSE:
+            print "ValueError: " + str(ve)
         return []
     try:
         data = data[0]
     except IndexError:
-        return None
-    return data["datapoints"]
+        return []
+    try:
+        return data["datapoints"]
+    except KeyError:
+        return []
 
+def list_average(values_list):
+    return sum(values_list) / float(len(values_list))
 
-def count_nones(metrics):
+def count_nones(metrics): 
+    """ 
+    Parameters
+    ----------
+    metrics : list of floats
+        the metrics to count nones for
+    
+    Returns
+    -------
+    count : int
+       the number of Nones in the list or None if the list is None or empty
+    """
     nones = 0
     if metrics:
         for metric in metrics:
-            if isinstance(metric[0], types.NoneType):
+            if metric[0] is None:
                 nones = nones + 1
-        return nones
-    else:
-        return None
+    return nones
 
 def read_file(path):
     try:
@@ -74,7 +92,7 @@ def read_file(path):
 def get_random_entries(dataset, number_of_entries):
     random_data = []
     for count in range(0, number_of_entries):
-        index = random.randint(1,len(dataset))
+        index = random.randint(1,len(dataset)-1)
         random_data.append(dataset[index])
     return random_data
 
@@ -90,31 +108,55 @@ def generate_load(host, timerange, local, cache, targets, interval, number_of_ch
     max_nones = 0
     no_data_count = 0
     to_much_nones_count = 0
+    response_times = []
+    global TIMEOUT_COUNT
+
     
     for count in range(0, number_of_checks):
         for target in targets:
             url = build_graphite_render_url(host, target,"json",timerange, local, cache)
-            if args.verbose:
+            if VERBOSE:
                 print "URL: " + url
-            datapoints = get_graphite_datapoints(url)
+                
+            try:
+                (response, response_time) = http_get(url, 1)
+            except pycurl.error as e:
+                print str(datetime.datetime.now()) + " - Timeout: " + str(e)
+                TIMEOUT_COUNT = TIMEOUT_COUNT + 1
+                # if there was an error, drop further work on this request and start over
+                continue   
+            
+            if response_time:
+                response_times.append(response_time)
+            datapoints = get_graphite_datapoints(response)
             nones = count_nones(datapoints)
             if nones > 1:
                 to_much_nones_count = to_much_nones_count + 1
-            if not nones:
+            if len(datapoints) == 0:
                 no_data_count = no_data_count + 1
             if max_nones < nones:
                 max_nones = nones
             print str(datetime.datetime.now()) + " - Nones: " + str(nones) + "/" + str(len(datapoints)) + " - Target: " + target
-            if args.verbose:
+            if VERBOSE:
                 print "Datapoints: " + str(datapoints)
         print "## waiting " + str(interval) + "s ##"
         time.sleep(interval)
-        
-    print "Maximum number of nones:     " + str(max_nones)
-    print "Received <No Data> for:      " + str(no_data_count) + " / " + str(len(targets)*number_of_checks) + " render requests"
-    print "Received too many nones for: " + str(to_much_nones_count) + " / " + str(len(targets)*number_of_checks) + " render requests"
+    print ""
+    print "Request duration:"    
+    print "- Maximum request duration:    " + str(max(response_times)) + "s"
+    print "- Minimum request duration:    " + str(min(response_times)) + "s"
+    print "- Average request duration:    " + str(list_average(response_times)) + "s"
+    print ""
+    print "Data:"
+    print "- Maximum number of nones:     " + str(max_nones)
+    print "- Received <No Data> for:      " + str(no_data_count) + " / " + str(len(targets)*number_of_checks) + " render requests"
+    print "- Received too many nones for: " + str(to_much_nones_count) + " / " + str(len(targets)*number_of_checks) + " render requests"
+    print "- Got timeout for:             " + str(TIMEOUT_COUNT) + " / " + str(len(targets)*number_of_checks) + " render requests"
 
 def main(args):
+    
+    global VERBOSE
+    VERBOSE = args.verbose
     try:
         timerange = "from=-" + str(args.timerange) + "min"
     
