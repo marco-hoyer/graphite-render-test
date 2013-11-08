@@ -4,6 +4,7 @@ Created on 14.10.2013
 @author: mhoyer
 '''
 
+
 import pycurl
 import StringIO
 import json
@@ -63,13 +64,13 @@ def get_graphite_datapoints(response):
 def list_average(values_list):
     return sum(values_list) / float(len(values_list))
 
-def count_nones(metrics): 
-    """ 
+def count_nones(metrics):
+    """
     Parameters
     ----------
     metrics : list of floats
         the metrics to count nones for
-    
+
     Returns
     -------
     count : int
@@ -103,7 +104,7 @@ def check_random_metrics(host, timerange, local, cache, targetfile, interval, nu
     targets = read_file(targetfile)
     random_targets = get_random_entries(targets, number_of_metrics)
     generate_load(host, timerange, local, cache, random_targets, interval, number_of_checks)
-    
+
 def generate_load(host, timerange, local, cache, targets, interval, number_of_checks):
     max_nones = 0
     no_data_count = 0
@@ -111,21 +112,21 @@ def generate_load(host, timerange, local, cache, targets, interval, number_of_ch
     response_times = []
     global TIMEOUT_COUNT
 
-    
+
     for count in range(0, number_of_checks):
         for target in targets:
             url = build_graphite_render_url(host, target,"json",timerange, local, cache)
             if VERBOSE:
                 print "URL: " + url
-                
+
             try:
                 (response, response_time) = http_get(url, 1)
             except pycurl.error as e:
                 print str(datetime.datetime.now()) + " - Timeout: " + str(e)
                 TIMEOUT_COUNT = TIMEOUT_COUNT + 1
                 # if there was an error, drop further work on this request and start over
-                continue   
-            
+                continue
+
             if response_time:
                 response_times.append(response_time)
             datapoints = get_graphite_datapoints(response)
@@ -142,7 +143,7 @@ def generate_load(host, timerange, local, cache, targets, interval, number_of_ch
         print "## waiting " + str(interval) + "s ##"
         time.sleep(interval)
     print ""
-    print "Request duration:"    
+    print "Request duration:"
     print "- Maximum request duration:    " + str(max(response_times)) + "s"
     print "- Minimum request duration:    " + str(min(response_times)) + "s"
     print "- Average request duration:    " + str(list_average(response_times)) + "s"
@@ -154,12 +155,12 @@ def generate_load(host, timerange, local, cache, targets, interval, number_of_ch
     print "- Got timeout for:             " + str(TIMEOUT_COUNT) + " / " + str(len(targets)*number_of_checks) + " render requests"
 
 def main(args):
-    
+
     global VERBOSE
     VERBOSE = args.verbose
     try:
         timerange = "from=-" + str(args.timerange) + "min"
-    
+
         # run checknones with sigle target supplied
         if args.checknones and args.target:
             check_single_metric(args.host, timerange, args.local, args.cache, args.target, args.interval, args.count)
